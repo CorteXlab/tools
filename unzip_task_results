@@ -1,0 +1,105 @@
+#!/bin/bash 
+# Author: Benjamin Guillon (Inria - 2014)
+
+# -------------
+# Generic tools
+# -------------
+# Prints the help message when wrong or no arguments are given
+display_usage() { 
+	
+	echo "`basename $0`"
+	echo ""
+	echo "This script will unzip task results into a dedicated folder containing one subfolder per node involved in the experiment. You just need to specify the id of the task whose results must be unzipped." 
+	echo ""
+	echo "Usage:"
+	echo "  `basename $0` <task_id>"
+        echo ""
+	echo "Options:"
+	echo "  -h --help	Show this message."
+	echo ""
+}
+
+# Ask for user confirmation. First argument is prompted message. Defaults on "Are you sure?" question. Yes/No answers only.
+confirm () {
+    # call with a prompted string or use a default
+    read -r -p "${1:-Are you sure? [y/N]} " response
+    case $response in
+        [yY][eE][sS]|[yY]) 
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# ----------------
+# CHECK PARAMETERS
+# ----------------
+# if less than two arguments supplied, display usage 
+	if [  $# -le 0 ] 
+	then 
+		display_usage
+		exit 1
+	fi 
+ 
+# check whether user had supplied -h or --help . If yes display usage 
+	if [[ ( $# == "--help") ||  $# == "-h" ]] 
+	then 
+		display_usage
+		exit 0
+	fi 
+
+# ------------------
+# Getting parameters
+# ------------------
+# Get the id of the task
+TASK_ID=$1
+
+# User home directory:
+HOME_DIR=/cortexlab/homes/$USER
+
+# Results directory (usually the standard NFS results directory)
+# Default: $HOME_DIR/results
+RES_DIR=$HOME_DIR/results
+
+# Destination directory (where you want to unzip the archives)
+# Default: $HOME_DIR/my_results/task$1
+DEST_DIR=$HOME_DIR/my_results/task$1
+
+# ----------------
+# Processing files
+# ----------------
+# Checking if a task results directory already exists
+if [ -d "$DEST_DIR" ]; then
+	if confirm "Task directory exists. Overwrite? [y/N]"; then
+		# Deleting existing directory
+		echo "Overwriting..."
+		rm -rf $DEST_DIR
+	else
+		# Exiting program
+		echo "Aborting."
+		exit 0
+	fi
+fi
+
+# Creating the task results directory
+mkdir -p $DEST_DIR
+
+# Unzipping archive files
+for archive in $RES_DIR/$1_node* ; do
+	# Getting node name
+	NODE_DIR=`echo "$archive" | sed 's/^.*\(node[0-9]*\).*$/\1/'`
+	
+	# Creating node specific subfolder
+	echo "Creating $NODE_DIR folder."
+	TGT_DIR=$DEST_DIR/$NODE_DIR
+	mkdir $TGT_DIR
+	
+	# Unzipping the archive contents in the subfolder
+	echo "Unzipping $archive ..."
+	tar xzf $archive -C $TGT_DIR --strip 1
+	echo "$archive processed."
+done
+
+echo "Okay. Done."
