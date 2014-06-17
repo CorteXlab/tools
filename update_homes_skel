@@ -1,0 +1,59 @@
+#!/bin/bash
+# ----------------------------------------------- #
+# Update CorteXlab users home dir with skel files #
+# @author: Benjamin Guillon (c) 2014              #
+# ----------------------------------------------- #
+
+# Variables
+# ---------
+
+# Skeleton directory
+SKEL_DIR='/etc/skel'
+
+# CorteXlab users homes directory
+HOMES_DIR='/cortexlab/homes'
+
+# Adding folder exceptions
+# ------------------------
+# Array of folders to be ignored
+HOMES_EXCEPT=( 'lost\+found' 'aquota.group' 'aquota.user' )
+
+# Regular expression to match those files
+re="$(printf '%s\n' "${HOMES_EXCEPT[@]}" | paste -sd '|')"
+
+# Doing the magic
+# ---------------
+# Running through all SKEL files
+for SKEL_FILE in $(ls -A $SKEL_DIR); do
+    # Going through all users home directories
+    for USER in $(ls $HOMES_DIR); do
+        if [[ $USER =~ $re ]]; then
+            echo "Ignoring home dir: $USER"
+        
+        else
+            
+            # We've got a directory
+            if [ -d "$SKEL_DIR/$SKEL_FILE" ]; then
+                
+                echo "Removing old contents of the directory $SKEL_FILE"
+                rm -rf $HOMES_DIR/$USER/$SKEL_FILE
+                
+                echo "Copying $SKEL_FILE contents for user $USER..."
+                mkdir $HOMES_DIR/$USER/$SKEL_FILE
+                cp -r $SKEL_DIR/$SKEL_FILE/. $HOMES_DIR/$USER/$SKEL_FILE/
+                
+                echo "Giving proper ownership of $HOMES_DIR/$USER/$SKEL_FILE to $USER."
+                chown -R $USER:$USER $HOMES_DIR/$USER/$SKEL_FILE
+            
+            # We've got a file
+            else
+                
+                echo "Overwriting $SKEL_FILE for user $USER..."
+                cp $SKEL_DIR/$SKEL_FILE $HOMES_DIR/$USER/$SKEL_FILE
+            fi
+        
+        fi
+    done
+done
+
+echo "Done. Okay bye."
